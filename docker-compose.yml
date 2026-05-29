@@ -1,0 +1,32 @@
+services:
+  backend:
+    image: golang:1.26.2-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - go-mod:/go/pkg/mod
+      - go-cache:/root/.cache/go-build
+      - memos-data:/var/opt/memos
+    ports:
+      - "8081:8081"
+    command: go run ./cmd/memos --port 8081
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app/web
+    volumes:
+      - .:/app
+      - pnpm-store:/root/.local/share/pnpm/store
+    ports:
+      - "80:3001"
+    environment:
+      - DEV_PROXY_SERVER=http://backend:8081
+    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    depends_on:
+      - backend
+
+volumes:
+  go-mod:
+  go-cache:
+  memos-data:
+  pnpm-store:
