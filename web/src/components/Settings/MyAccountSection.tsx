@@ -1,10 +1,14 @@
-import { AlertTriangleIcon, KeyRoundIcon, PenLineIcon } from "lucide-react";
+import dayjs from "dayjs";
+import { AlertTriangleIcon, DownloadIcon, KeyRoundIcon, PenLineIcon } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { userServiceClient } from "@/connect";
+import { memoServiceClient, userServiceClient } from "@/connect";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildMemoCreatorFilter, extractMemoIdFromName } from "@/helpers/resource-names";
+import { downloadFileFromUrl } from "@/helpers/utils";
+import { createZip, type ZipFile } from "@/helpers/zip";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useDialog } from "@/hooks/useDialog";
 import useNavigateTo from "@/hooks/useNavigateTo";
@@ -27,6 +31,41 @@ const MyAccountSection = () => {
   const accountDialog = useDialog();
   const passwordDialog = useDialog();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportMemos = async () => {
+    if (!user?.name) {
+      return;
+    }
+    setExporting(true);
+    try {
+      const files: ZipFile[] = [];
+      let pageToken = "";
+      do {
+        const response = await memoServiceClient.listMemos({
+          pageSize: 1000,
+          pageToken,
+          filter: buildMemoCreatorFilter(user.name),
+        });
+        for (const memo of response.memos) {
+          files.push({ name: `${extractMemoIdFromName(memo.name)}.md`, content: memo.content });
+        }
+        pageToken = response.nextPageToken;
+      } while (pageToken);
+
+      if (files.length === 0) {
+        toast(t("message.no-data"));
+        return;
+      }
+      const url = URL.createObjectURL(createZip(files));
+      downloadFileFromUrl(url, `memos-export-${dayjs().format("YYYYMMDD")}.zip`);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      handleError(error, toast.error, { context: "Export memos" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     if (!user?.name) {
@@ -63,6 +102,10 @@ const MyAccountSection = () => {
             <Button variant="outline" size="sm" onClick={passwordDialog.open}>
               <KeyRoundIcon className="w-4 h-4 mr-1.5" />
               {t("setting.account.change-password")}
+            </Button>
+            <Button variant="outline" size="sm" disabled={exporting} onClick={handleExportMemos}>
+              <DownloadIcon className="w-4 h-4 mr-1.5" />
+              {t("setting.account.export-memos")}
             </Button>
           </div>
         </div>
