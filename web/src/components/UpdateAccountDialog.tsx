@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstance } from "@/contexts/InstanceContext";
-import { convertFileToBase64 } from "@/helpers/utils";
+import { convertFileToBase64, isValidUrl } from "@/helpers/utils";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useUpdateUser } from "@/hooks/useUserQueries";
 import { handleError } from "@/lib/error";
@@ -43,6 +43,7 @@ function UpdateAccountDialog({ open, onOpenChange, onSuccess }: Props) {
     email: currentUser?.email ?? "",
     description: currentUser?.description ?? "",
   });
+  const [avatarUrlInput, setAvatarUrlInput] = useState("");
 
   const handleCloseBtnClick = () => {
     onOpenChange(false);
@@ -74,6 +75,31 @@ function UpdateAccountDialog({ open, onOpenChange, onSuccess }: Props) {
         console.error(error);
         toast.error(`Failed to convert image to base64`);
       }
+    }
+  };
+
+  const handleAvatarUrlLoad = async () => {
+    const url = avatarUrlInput.trim();
+    if (!isValidUrl(url)) {
+      toast.error("Invalid image URL");
+      return;
+    }
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      if (!blob.type.startsWith("image/")) {
+        toast.error("URL does not point to an image");
+        return;
+      }
+      if (blob.size > 2 * 1024 * 1024) {
+        toast.error("Max file size is 2MB");
+        return;
+      }
+      const base64 = await convertFileToBase64(new File([blob], "avatar", { type: blob.type }));
+      setPartialState({ avatarUrl: base64 });
+      setAvatarUrlInput("");
+    } catch {
+      toast.error("Failed to load image from URL");
     }
   };
 
@@ -175,6 +201,16 @@ function UpdateAccountDialog({ open, onOpenChange, onSuccess }: Props) {
                 }
               />
             )}
+          </div>
+          <div className="flex flex-row items-center gap-2">
+            <Input
+              placeholder="https://example.com/avatar.png"
+              value={avatarUrlInput}
+              onChange={(e) => setAvatarUrlInput(e.target.value)}
+            />
+            <Button variant="outline" disabled={!avatarUrlInput.trim()} onClick={handleAvatarUrlLoad}>
+              {t("common.load")}
+            </Button>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="username">
