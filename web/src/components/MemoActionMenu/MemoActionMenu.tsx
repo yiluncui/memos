@@ -44,6 +44,7 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
     handleEditMemoClick,
     handleToggleMemoStatusClick,
     handleCopyLink,
+    handleCopyPermalink,
     handleCopyContent,
     handleDeleteMemoClick,
     confirmDeleteMemo,
@@ -88,6 +89,10 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
               <DropdownMenuItem onClick={handleCopyLink}>
                 <LinkIcon className="w-4 h-auto" />
                 {t("memo.copy-link")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyPermalink}>
+                <LinkIcon className="w-4 h-auto" />
+                {t("memo.copy-permalink")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyContent}>
                 <FileTextIcon className="w-4 h-auto" />

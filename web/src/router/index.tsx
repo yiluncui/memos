@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
 import App from "@/App";
 import { ChunkLoadErrorFallback } from "@/components/ErrorBoundary";
+import MemoPermalinkRedirect from "@/components/MemoPermalinkRedirect";
 import MainLayout from "@/layouts/MainLayout";
 import RootLayout from "@/layouts/RootLayout";
 import { LandingRoute, RequireAuthRoute, RequireGuestRoute } from "./guards";
@@ -99,6 +100,7 @@ export const routeConfig: RouteObject[] = [
           },
           { path: "memos/:uid", element: <MemoDetail /> },
           { path: "memos/shares/:token", element: <MemoDetail /> },
+          { path: "m/:uid", element: <MemoPermalinkRedirect /> },
           {
             element: <RequireAuthRoute />,
             children: [
