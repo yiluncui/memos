@@ -78,29 +78,15 @@ function UpdateAccountDialog({ open, onOpenChange, onSuccess }: Props) {
     }
   };
 
-  const handleAvatarUrlLoad = async () => {
+  const handleAvatarUrlLoad = () => {
     const url = avatarUrlInput.trim();
     if (!isValidUrl(url)) {
       toast.error("Invalid image URL");
       return;
     }
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      if (!blob.type.startsWith("image/")) {
-        toast.error("URL does not point to an image");
-        return;
-      }
-      if (blob.size > 2 * 1024 * 1024) {
-        toast.error("Max file size is 2MB");
-        return;
-      }
-      const base64 = await convertFileToBase64(new File([blob], "avatar", { type: blob.type }));
-      setPartialState({ avatarUrl: base64 });
-      setAvatarUrlInput("");
-    } catch {
-      toast.error("Failed to load image from URL");
-    }
+    // The server imports the URL on save; just stage it (and preview it) here.
+    setPartialState({ avatarUrl: url });
+    setAvatarUrlInput("");
   };
 
   const handleDisplayNameChanged = (e: React.ChangeEvent<HTMLInputElement>) => {

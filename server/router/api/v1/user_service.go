@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/usememos/memos/internal/httpgetter"
 	"github.com/usememos/memos/internal/util"
 	"github.com/usememos/memos/internal/webhook"
 	v1pb "github.com/usememos/memos/proto/gen/api/v1"
@@ -295,9 +297,18 @@ func (s *APIV1Service) UpdateUser(ctx context.Context, request *v1pb.UpdateUserR
 		case "email":
 			update.Email = &request.User.Email
 		case "avatar_url":
-			// Validate avatar MIME type to prevent XSS during upload
-			if request.User.AvatarUrl != "" {
-				imageType, _, err := extractImageInfo(request.User.AvatarUrl)
+			avatarURL := request.User.AvatarUrl
+			if avatarURL != "" {
+				// If an http(s) URL is provided, import the image server-side into a data URI.
+				if strings.HasPrefix(avatarURL, "http://") || strings.HasPrefix(avatarURL, "https://") {
+					imported, err := importAvatarFromURL(avatarURL)
+					if err != nil {
+						return nil, status.Errorf(codes.InvalidArgument, "failed to import avatar from URL: %v", err)
+					}
+					avatarURL = imported
+				}
+				// Validate avatar MIME type to prevent XSS during upload
+				imageType, _, err := extractImageInfo(avatarURL)
 				if err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "invalid avatar format: %v", err)
 				}
@@ -313,7 +324,7 @@ func (s *APIV1Service) UpdateUser(ctx context.Context, request *v1pb.UpdateUserR
 					return nil, status.Errorf(codes.InvalidArgument, "invalid avatar image type: %s. Only PNG, JPEG, GIF, and WebP are allowed", imageType)
 				}
 			}
-			update.AvatarURL = &request.User.AvatarUrl
+			update.AvatarURL = &avatarURL
 		case "description":
 			update.Description = &request.User.Description
 		case "role":
@@ -1263,6 +1274,18 @@ func convertUserRoleToStore(role v1pb.User_Role) store.Role {
 	default:
 		return store.RoleUser
 	}
+}
+
+// importAvatarFromURL fetches an image from a URL server-side and returns it as a base64 data URI.
+func importAvatarFromURL(avatarURL string) (string, error) {
+	image, err := httpgetter.GetImage(avatarURL)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to fetch image")
+	}
+	if len(image.Blob) > 2*1024*1024 {
+		return "", errors.New("image exceeds the 2MB size limit")
+	}
+	return fmt.Sprintf("data:%s;base64,%s", image.Mediatype, base64.StdEncoding.EncodeToString(image.Blob)), nil
 }
 
 // extractImageInfo extracts image type and base64 data from a data URI.
